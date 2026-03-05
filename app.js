@@ -7,7 +7,10 @@
 // ---------------------------------------------------------------------------
 const DB = {
     get: () => {
-        let data = JSON.parse(localStorage.getItem('studynotes_db'));
+        let data = null;
+        try {
+            data = JSON.parse(localStorage.getItem('studynotes_db') || localStorage.getItem('studynotes_data') || localStorage.getItem('studynotes') || localStorage.getItem('notes_db') || 'null');
+        } catch (e) { }
         if (!data || !data.courses || data.courses.length === 0) {
             data = {
                 courses: [
@@ -107,9 +110,9 @@ const DB = {
 // ---------------------------------------------------------------------------
 function renderMarkdown(text) {
     if (!text) return '<p><em>No content yet.</em></p>';
-    
+
     // Handle Code Blocks first
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, function (match, lang, code) {
         return '<pre class="code-block"><button class="copy-code-btn">Copy</button><code>' + code.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
     });
 
@@ -299,11 +302,11 @@ function renderCourse(container, id) {
 
     // Populate Navigator
     var navigator = section.querySelector('#lesson-navigator');
-    course.lessons.forEach(function(l, idx) {
+    course.lessons.forEach(function (l, idx) {
         var chip = document.createElement('div');
         chip.className = 'nav-chip' + (l.completed ? ' completed' : '');
         chip.textContent = (idx + 1) + '. ' + l.title;
-        chip.onclick = function() {
+        chip.onclick = function () {
             var el = document.getElementById('lesson-' + l.id);
             if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -331,11 +334,11 @@ function renderCourse(container, id) {
         });
 
         var searchInput = section.querySelector('#lesson-search');
-        searchInput.addEventListener('input', function(e) {
+        searchInput.addEventListener('input', function (e) {
             var q = e.target.value.toLowerCase();
-            section.querySelectorAll('.lesson-accordion').forEach(function(acc) {
+            section.querySelectorAll('.lesson-accordion').forEach(function (acc) {
                 var title = acc.querySelector('.lesson-name').textContent.toLowerCase();
-                var summary = (acc.querySelector('.lesson-summary') || {textContent:''}).textContent.toLowerCase();
+                var summary = (acc.querySelector('.lesson-summary') || { textContent: '' }).textContent.toLowerCase();
                 if (title.indexOf(q) !== -1 || summary.indexOf(q) !== -1) {
                     acc.style.display = '';
                 } else {
@@ -576,6 +579,59 @@ function openImportModal() {
     document.getElementById('import-error').style.display = 'none';
 }
 
+function closeImportModal() {
+    document.getElementById('import-modal-overlay').style.display = 'none';
+}
+
+function parseJSONFile(text) {
+    var data = JSON.parse(text);
+    var courses = Array.isArray(data) ? data : (data.courses ? data.courses : [data]);
+    return courses.map(function (c) {
+        if (!c.title) throw new Error('Course missing title.');
+        return {
+            title: c.title,
+            tags: c.tags || '',
+            description: c.description || '',
+            lessons: Array.isArray(c.lessons) ? c.lessons.map(function (l) {
+                return {
+                    title: l.title || 'Untitled',
+                    description: l.description || '',
+                    content: l.content || '',
+                    completed: !!l.completed
+                };
+            }) : []
+        };
+    });
+}
+
+function applyImport(importedCourses, mode) {
+    var db = DB.get();
+    importedCourses.forEach(function (ic) {
+        var existing = db.courses.find(function (c) { return c.title.toLowerCase() === ic.title.toLowerCase(); });
+        if (existing) {
+            if (mode === 'replace') {
+                Object.assign(existing, ic);
+                existing.id = Date.now() + Math.floor(Math.random() * 1000);
+                existing.lessons.forEach(function (l, i) { l.id = Date.now() + i + Math.floor(Math.random() * 1000); });
+            } else if (mode === 'merge') {
+                ic.lessons.forEach(function (l, i) {
+                    l.id = Date.now() + i + Math.floor(Math.random() * 1000);
+                    existing.lessons.push(l);
+                });
+            } else if (mode === 'duplicate') {
+                ic.id = Date.now() + Math.floor(Math.random() * 1000);
+                ic.lessons.forEach(function (l, i) { l.id = Date.now() + i + Math.floor(Math.random() * 1000); });
+                db.courses.push(ic);
+            }
+        } else {
+            ic.id = Date.now() + Math.floor(Math.random() * 1000);
+            ic.lessons.forEach(function (l, i) { l.id = Date.now() + i + Math.floor(Math.random() * 1000); });
+            db.courses.push(ic);
+        }
+    });
+    DB.save(db);
+}
+
 document.getElementById('import-file-input').addEventListener('change', function () {
     var files = Array.from(this.files);
     if (!files.length) return;
@@ -591,7 +647,7 @@ document.getElementById('import-file-input').addEventListener('change', function
     _parsedImport = [];
 
     var loaded = 0;
-    files.forEach(function(file) {
+    files.forEach(function (file) {
         var reader = new FileReader();
         reader.onload = function (e) {
             try {
@@ -599,9 +655,9 @@ document.getElementById('import-file-input').addEventListener('change', function
                 var results = file.name.slice(-5) === '.json'
                     ? parseJSONFile(content)
                     : [parseMarkdownFile(content)];
-                
+
                 _parsedImport = _parsedImport.concat(results);
-                
+
                 loaded++;
                 if (loaded === files.length) {
                     previewText.textContent = _parsedImport.map(function (c) {
@@ -624,14 +680,14 @@ document.getElementById('import-file-input').addEventListener('change', function
 });
 
 // Copy to Clipboard logic for code blocks
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     if (e.target.classList.contains('copy-code-btn')) {
         var pre = e.target.closest('pre');
         var code = pre.querySelector('code').innerText;
-        navigator.clipboard.writeText(code).then(function() {
+        navigator.clipboard.writeText(code).then(function () {
             var old = e.target.innerText;
             e.target.innerText = 'Copied!';
-            setTimeout(function() { e.target.innerText = old; }, 2000);
+            setTimeout(function () { e.target.innerText = old; }, 2000);
         });
     }
 });
