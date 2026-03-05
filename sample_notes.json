@@ -1,0 +1,19 @@
+[
+  {
+    "title": "Computer Science 101",
+    "tags": "Programming, CS, Intro",
+    "description": "Fundamentals of computer science and programming.",
+    "lessons": [
+      {
+        "title": "What is an Algorithm?",
+        "description": "Definition and properties of algorithms.",
+        "content": "An algorithm is a step-by-step procedure to solve a problem.\n\nProperties of a good algorithm:\n- Correctness\n- Efficiency (time and space complexity)\n- Clarity\n- Finiteness\n\nExample: Binary search runs in O(log n) time."
+      },
+      {
+        "title": "Data Structures Overview",
+        "description": "Arrays, linked lists, stacks, queues, and trees.",
+        "content": "Common data structures:\n\n- Array: fixed-size, O(1) access by index\n- Linked List: dynamic size, O(n) access\n- Stack: LIFO — push/pop operations\n- Queue: FIFO — enqueue/dequeue\n- Tree: hierarchical, used in search (BST) and heaps"
+      }
+    ]
+  }
+]

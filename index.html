@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyNotes</title>
+    <meta name="description" content="A personal study notes organiser with course and lesson management.">
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <header id="header">
+        <div class="container">
+            <h1 id="logo"><a href="#" id="logo-link">StudyNotes</a></h1>
+            <nav>
+                <ul>
+                    <li><a href="#" id="nav-dashboard">Dashboard</a></li>
+                    <li><a href="#" id="global-add-btn">+ New Course</a></li>
+                    <li><a href="#" id="import-btn">⬆ Import</a></li>
+                    <li><a href="#" id="dark-mode-toggle" title="Toggle Dark Mode">☾</a></li>
+                    <li><input type="text" placeholder="Search…" id="search-bar" autocomplete="off"></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container" id="app-root"></main>
+
+    <!-- Form Modal -->
+    <div id="modal-overlay" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content" id="modal-body"></div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="import-modal-overlay" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <h3>Import Notes</h3>
+            <p class="import-hint">Supports <strong>.json</strong> and <strong>.md</strong> (Markdown) files.</p>
+
+            <div class="field">
+                <label for="import-file-input">Select File</label>
+                <input type="file" id="import-file-input" accept=".json,.md,.markdown">
+            </div>
+
+            <div class="field">
+                <label>If a course with the same name already exists:</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="import-mode" value="merge" checked> <span>Merge — add new lessons
+                            to existing course</span></label>
+                    <label><input type="radio" name="import-mode" value="replace"> <span>Replace — overwrite existing
+                            course</span></label>
+                    <label><input type="radio" name="import-mode" value="duplicate"> <span>Keep both — duplicate as new
+                            course</span></label>
+                </div>
+            </div>
+
+            <div id="import-preview" class="import-preview" style="display:none">
+                <h4>Preview</h4>
+                <pre id="import-preview-text"></pre>
+            </div>
+
+            <div id="import-error" class="import-error" style="display:none"></div>
+
+            <div class="modal-footer">
+                <button class="button action-btn" id="import-confirm-btn" disabled>Import</button>
+                <button class="button secondary" id="import-cancel-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
