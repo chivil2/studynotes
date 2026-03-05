@@ -287,6 +287,7 @@ function renderCourse(container, id) {
         '<span class="progress-text">' + Math.round(progressPercent) + '% Completed (' + completedCount + '/' + course.lessons.length + ')</span>' +
         '<div class="course-actions">' +
         '<button class="button action-btn" id="add-lesson-btn">+ Add Lesson</button>' +
+        '<button class="button secondary" id="import-lesson-btn">Import Lessons</button>' +
         '<button class="button secondary" id="edit-course-btn">Edit Course</button>' +
         '<button class="button danger-btn" id="delete-course-btn">Delete Course</button>' +
         '</div></div>' +
@@ -322,6 +323,9 @@ function renderCourse(container, id) {
         });
         section.querySelector('#add-lesson-btn').addEventListener('click', function () {
             showForm('lesson', { courseId: courseId });
+        });
+        section.querySelector('#import-lesson-btn').addEventListener('click', function () {
+            openImportModal(courseId);
         });
         section.querySelector('#edit-course-btn').addEventListener('click', function () {
             showForm('edit-course', { courseId: courseId, course: course });
@@ -569,14 +573,20 @@ function parseMarkdownFile(text) {
 // Import System
 // ---------------------------------------------------------------------------
 var _parsedImport = null;
+var _importTargetCourseId = null;
 
-function openImportModal() {
+function openImportModal(targetCourseId) {
     _parsedImport = [];
+    _importTargetCourseId = typeof targetCourseId === 'string' || typeof targetCourseId === 'number' ? targetCourseId : null;
     document.getElementById('import-modal-overlay').style.display = 'block';
     document.getElementById('import-file-input').value = '';
     document.getElementById('import-confirm-btn').disabled = true;
     document.getElementById('import-preview').style.display = 'none';
     document.getElementById('import-error').style.display = 'none';
+    var modeContainer = document.getElementById('import-mode-container');
+    if (modeContainer) {
+        modeContainer.style.display = _importTargetCourseId ? 'none' : 'block';
+    }
 }
 
 function closeImportModal() {
@@ -606,6 +616,21 @@ function parseJSONFile(text) {
 
 function applyImport(importedCourses, mode) {
     var db = DB.get();
+
+    if (_importTargetCourseId) {
+        var targetCourse = db.courses.find(function (c) { return c.id == _importTargetCourseId; });
+        if (targetCourse) {
+            importedCourses.forEach(function (ic) {
+                ic.lessons.forEach(function (l, i) {
+                    l.id = Date.now() + i + Math.floor(Math.random() * 1000);
+                    targetCourse.lessons.push(l);
+                });
+            });
+            DB.save(db);
+            return;
+        }
+    }
+
     importedCourses.forEach(function (ic) {
         var existing = db.courses.find(function (c) { return c.title.toLowerCase() === ic.title.toLowerCase(); });
         if (existing) {
@@ -694,10 +719,15 @@ document.addEventListener('click', function (e) {
 
 document.getElementById('import-confirm-btn').addEventListener('click', function () {
     if (!_parsedImport) return;
-    var mode = document.querySelector('input[name="import-mode"]:checked').value;
+    var modeEl = document.querySelector('input[name="import-mode"]:checked');
+    var mode = modeEl ? modeEl.value : 'merge';
     applyImport(_parsedImport, mode);
     closeImportModal();
-    router.navigate('dashboard');
+    if (_importTargetCourseId) {
+        router.navigate('course', { id: _importTargetCourseId });
+    } else {
+        router.navigate('dashboard');
+    }
 });
 
 document.getElementById('import-cancel-btn').addEventListener('click', closeImportModal);
