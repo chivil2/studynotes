@@ -110,7 +110,7 @@ function renderMarkdown(text) {
     
     // Handle Code Blocks first
     text = text.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
-        return '<pre class="code-block"><code>' + code.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
+        return '<pre class="code-block"><button class="copy-code-btn">Copy</button><code>' + code.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
     });
 
     const lines = text.split('\n');
@@ -516,20 +516,13 @@ function showForm(type, context) {
 
 /**
  * Parse a Markdown file into a course object.
- * Format:
- *   # Course Title
- *   Tags: tag1, tag2
- *   Description: Short overview
- *
- *   ## Lesson Title
- *   Summary: One sentence
- *   Lesson body content...
  */
 function parseMarkdownFile(text) {
     var lines = text.split(/\r?\n/);
     var course = null;
     var currentLesson = null;
     var contentBuffer = [];
+    var inCodeBlock = false;
 
     function flushLesson() {
         if (currentLesson) {
@@ -541,82 +534,41 @@ function parseMarkdownFile(text) {
     }
 
     lines.forEach(function (line) {
-        if (line.indexOf('# ') === 0) {
+        if (line.indexOf('```') === 0) inCodeBlock = !inCodeBlock;
+
+        if (!inCodeBlock && line.indexOf('# ') === 0) {
             flushLesson();
             course = { title: line.slice(2).trim(), tags: '', description: '', lessons: [] };
-        } else if (line.indexOf('## ') === 0 && course) {
+        } else if (!inCodeBlock && line.indexOf('## ') === 0 && course) {
             flushLesson();
             currentLesson = { title: line.slice(3).trim(), description: '', content: '' };
-        } else if (course && !currentLesson) {
+        } else if (course && !currentLesson && !inCodeBlock) {
             var tagsMatch = line.match(/^Tags:\s*(.+)/i);
             var descMatch = line.match(/^Description:\s*(.+)/i);
             if (tagsMatch) course.tags = tagsMatch[1].trim();
             else if (descMatch) course.description = descMatch[1].trim();
         } else if (currentLesson) {
             var summaryMatch = line.match(/^Summary:\s*(.+)/i);
-            if (summaryMatch && !currentLesson.description) currentLesson.description = summaryMatch[1].trim();
-            else contentBuffer.push(line);
+            if (!inCodeBlock && summaryMatch && !currentLesson.description) {
+                currentLesson.description = summaryMatch[1].trim();
+            } else {
+                contentBuffer.push(line);
+            }
         }
     });
 
     flushLesson();
-    if (!course || !course.title) throw new Error('No course heading (# Title) found in the Markdown file.');
+    if (!course || !course.title) throw new Error('No course heading (# Title) found.');
     return course;
 }
 
-/** Parse a JSON file. Accepts a single course object or an array. */
-function parseJSONFile(text) {
-    var parsed = JSON.parse(text);
-    var courses = Array.isArray(parsed) ? parsed : [parsed];
-    courses.forEach(function (c) {
-        if (!c.title) throw new Error('Each course must have a "title" field.');
-        if (!Array.isArray(c.lessons)) c.lessons = [];
-    });
-    return courses;
-}
-
-/** Apply imported courses to the DB with the chosen conflict mode. */
-function applyImport(importedCourses, mode) {
-    var data = DB.get();
-
-    importedCourses.forEach(function (ic) {
-        var now = Date.now();
-        ic.lessons = (ic.lessons || []).map(function (l, i) {
-            return {
-                id: now + i + 1,
-                title: l.title || 'Untitled Lesson',
-                description: l.description || '',
-                content: l.content || ''
-            };
-        });
-
-        var existing = data.courses.find(function (c) {
-            return c.title.toLowerCase() === ic.title.toLowerCase();
-        });
-
-        if (!existing || mode === 'duplicate') {
-            data.courses.push({ id: now, title: ic.title, tags: ic.tags || '', description: ic.description || '', lessons: ic.lessons });
-        } else if (mode === 'replace') {
-            existing.tags = ic.tags || existing.tags;
-            existing.description = ic.description || existing.description;
-            existing.lessons = ic.lessons;
-        } else { // merge
-            ic.lessons.forEach(function (nl) {
-                var dup = existing.lessons.find(function (l) {
-                    return l.title.toLowerCase() === nl.title.toLowerCase();
-                });
-                if (!dup) existing.lessons.push(nl);
-            });
-        }
-    });
-
-    DB.save(data);
-}
-
+// ---------------------------------------------------------------------------
+// Import System
+// ---------------------------------------------------------------------------
 var _parsedImport = null;
 
 function openImportModal() {
-    _parsedImport = null;
+    _parsedImport = [];
     document.getElementById('import-modal-overlay').style.display = 'block';
     document.getElementById('import-file-input').value = '';
     document.getElementById('import-confirm-btn').disabled = true;
@@ -624,13 +576,9 @@ function openImportModal() {
     document.getElementById('import-error').style.display = 'none';
 }
 
-function closeImportModal() {
-    document.getElementById('import-modal-overlay').style.display = 'none';
-}
-
 document.getElementById('import-file-input').addEventListener('change', function () {
-    var file = this.files[0];
-    if (!file) return;
+    var files = Array.from(this.files);
+    if (!files.length) return;
 
     var errEl = document.getElementById('import-error');
     var previewEl = document.getElementById('import-preview');
@@ -640,31 +588,52 @@ document.getElementById('import-file-input').addEventListener('change', function
     errEl.style.display = 'none';
     previewEl.style.display = 'none';
     confirmBtn.disabled = true;
-    _parsedImport = null;
+    _parsedImport = [];
 
-    var reader = new FileReader();
-    reader.onload = function (e) {
-        try {
-            var courses = file.name.slice(-5) === '.json'
-                ? parseJSONFile(e.target.result)
-                : [parseMarkdownFile(e.target.result)];
+    var loaded = 0;
+    files.forEach(function(file) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                var content = e.target.result;
+                var results = file.name.slice(-5) === '.json'
+                    ? parseJSONFile(content)
+                    : [parseMarkdownFile(content)];
+                
+                _parsedImport = _parsedImport.concat(results);
+                
+                loaded++;
+                if (loaded === files.length) {
+                    previewText.textContent = _parsedImport.map(function (c) {
+                        var lines = '\uD83D\uDCD8 "' + c.title + '"  [' + c.lessons.length + ' lesson' + (c.lessons.length !== 1 ? 's' : '') + ']\n';
+                        lines += c.lessons.slice(0, 5).map(function (l, i) { return '   ' + (i + 1) + '. ' + l.title; }).join('\n');
+                        if (c.lessons.length > 5) lines += '\n   ... and ' + (c.lessons.length - 5) + ' more';
+                        return lines;
+                    }).join('\n\n');
 
-            _parsedImport = courses;
+                    previewEl.style.display = 'block';
+                    confirmBtn.disabled = false;
+                }
+            } catch (err) {
+                errEl.textContent = '\u26A0 Error in "' + file.name + '": ' + err.message;
+                errEl.style.display = 'block';
+            }
+        };
+        reader.readAsText(file);
+    });
+});
 
-            previewText.textContent = courses.map(function (c) {
-                var lines = '\uD83D\uDCD8 "' + c.title + '"  [' + c.lessons.length + ' lesson' + (c.lessons.length !== 1 ? 's' : '') + ']\n';
-                lines += c.lessons.map(function (l, i) { return '   ' + (i + 1) + '. ' + l.title; }).join('\n');
-                return lines;
-            }).join('\n\n');
-
-            previewEl.style.display = 'block';
-            confirmBtn.disabled = false;
-        } catch (err) {
-            errEl.textContent = '\u26A0 ' + err.message;
-            errEl.style.display = 'block';
-        }
-    };
-    reader.readAsText(file);
+// Copy to Clipboard logic for code blocks
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('copy-code-btn')) {
+        var pre = e.target.closest('pre');
+        var code = pre.querySelector('code').innerText;
+        navigator.clipboard.writeText(code).then(function() {
+            var old = e.target.innerText;
+            e.target.innerText = 'Copied!';
+            setTimeout(function() { e.target.innerText = old; }, 2000);
+        });
+    }
 });
 
 document.getElementById('import-confirm-btn').addEventListener('click', function () {
