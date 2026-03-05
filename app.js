@@ -107,11 +107,23 @@ const DB = {
 // ---------------------------------------------------------------------------
 function renderMarkdown(text) {
     if (!text) return '<p><em>No content yet.</em></p>';
+    
+    // Handle Code Blocks first
+    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+        return '<pre class="code-block"><code>' + code.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
+    });
+
     const lines = text.split('\n');
     let html = '';
     let inList = false;
 
     lines.forEach(function (line) {
+        // Skip lines that are already part of a code block (very naive check)
+        if (line.indexOf('<pre') !== -1 || line.indexOf('</pre') !== -1 || line.indexOf('<code>') !== -1) {
+            html += line;
+            return;
+        }
+
         line = line
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -125,7 +137,7 @@ function renderMarkdown(text) {
             if (!inList) { html += '<ul>'; inList = true; }
             html += '<li>' + line.replace(/^[-*]\s/, '') + '</li>';
         } else if (/^\d+\.\s/.test(line)) {
-            if (inList) { html += '</ul>'; inList = false; }
+            if (inList) { html += '</ul>'; inList = true; } // Reuse same list logic
             html += '<li>' + line.replace(/^\d+\.\s/, '') + '</li>';
         } else if (line.trim() === '') {
             if (inList) { html += '</ul>'; inList = false; }
@@ -251,6 +263,9 @@ function renderCourse(container, id) {
     var section = document.createElement('section');
     section.className = 'course-view';
 
+    var completedCount = course.lessons.filter(l => l.completed).length;
+    var progressPercent = course.lessons.length > 0 ? (completedCount / course.lessons.length) * 100 : 0;
+
     var tagsHtml = (course.tags || '').split(',').filter(Boolean).map(function (t) {
         return '<span class="tag">' + t.trim() + '</span>';
     }).join('');
@@ -265,15 +280,38 @@ function renderCourse(container, id) {
         '<h2 class="course-title">' + course.title + '</h2>' +
         (tagsHtml ? '<div class="tags">' + tagsHtml + '</div>' : '') +
         (course.description ? '<p class="course-desc">' + course.description + '</p>' : '') +
+        '<div class="course-progress-container"><div class="progress-bar" style="width:' + progressPercent + '%"></div></div>' +
+        '<span class="progress-text">' + Math.round(progressPercent) + '% Completed (' + completedCount + '/' + course.lessons.length + ')</span>' +
         '<div class="course-actions">' +
         '<button class="button action-btn" id="add-lesson-btn">+ Add Lesson</button>' +
         '<button class="button secondary" id="edit-course-btn">Edit Course</button>' +
         '<button class="button danger-btn" id="delete-course-btn">Delete Course</button>' +
         '</div></div>' +
+        '<div class="lesson-navigator" id="lesson-navigator"></div>' +
         '<div class="lessons-section">' +
-        '<div class="lessons-toolbar"><span class="lessons-label">' + lessonCountLabel + '</span>' + expandControls + '</div>' +
+        '<div class="lessons-toolbar">' +
+        '<span class="lessons-label">' + lessonCountLabel + '</span>' +
+        '<div class="lesson-search-container"><input type="text" id="lesson-search" placeholder="Filter lessons..."></div>' +
+        expandControls +
+        '</div>' +
         '<div class="lessons-container" id="lessons-container"></div>' +
         '</div>';
+
+    // Populate Navigator
+    var navigator = section.querySelector('#lesson-navigator');
+    course.lessons.forEach(function(l, idx) {
+        var chip = document.createElement('div');
+        chip.className = 'nav-chip' + (l.completed ? ' completed' : '');
+        chip.textContent = (idx + 1) + '. ' + l.title;
+        chip.onclick = function() {
+            var el = document.getElementById('lesson-' + l.id);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (!el.classList.contains('is-open')) el.querySelector('.accordion-header').click();
+            }
+        };
+        navigator.appendChild(chip);
+    });
 
     (function (courseId, courseTitle) {
         section.querySelector('#back-btn').addEventListener('click', function (e) {
@@ -292,6 +330,20 @@ function renderCourse(container, id) {
             }
         });
 
+        var searchInput = section.querySelector('#lesson-search');
+        searchInput.addEventListener('input', function(e) {
+            var q = e.target.value.toLowerCase();
+            section.querySelectorAll('.lesson-accordion').forEach(function(acc) {
+                var title = acc.querySelector('.lesson-name').textContent.toLowerCase();
+                var summary = (acc.querySelector('.lesson-summary') || {textContent:''}).textContent.toLowerCase();
+                if (title.indexOf(q) !== -1 || summary.indexOf(q) !== -1) {
+                    acc.style.display = '';
+                } else {
+                    acc.style.display = 'none';
+                }
+            });
+        });
+
         var expandBtn = section.querySelector('#expand-all-btn');
         var collapseBtn = section.querySelector('#collapse-all-btn');
         if (expandBtn) expandBtn.addEventListener('click', function () { setAllAccordions(section, true); });
@@ -303,7 +355,9 @@ function renderCourse(container, id) {
         lessonsContainer.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128221;</div><p>No lessons yet. Click <strong>+ Add Lesson</strong> to start adding content.</p></div>';
     } else {
         course.lessons.forEach(function (lesson, idx) {
-            lessonsContainer.appendChild(createAccordion(lesson, idx, course.id, idx === 0));
+            var acc = createAccordion(lesson, idx, course.id, idx === 0);
+            acc.id = 'lesson-' + lesson.id;
+            lessonsContainer.appendChild(acc);
         });
     }
 

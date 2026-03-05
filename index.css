@@ -329,6 +329,16 @@ nav ul li a:hover {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.75rem;
+    gap: 1rem;
+    position: sticky;
+    top: 50px;
+    background: var(--bg);
+    padding: 10px 0;
+    z-index: 10;
+}
+
+body.dark-mode .lessons-toolbar {
+    background: var(--bg);
 }
 
 .lessons-label {
@@ -337,6 +347,22 @@ nav ul li a:hover {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.lesson-search-container {
+    flex: 1;
+    max-width: 300px;
+}
+
+#lesson-search {
+    width: 100%;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+    background: var(--surface);
+    color: var(--text);
 }
 
 .expand-controls {
@@ -346,21 +372,104 @@ nav ul li a:hover {
     font-size: 0.78rem;
 }
 
-.sep {
-    color: var(--border);
+/* --- Progress Bar ----------------------------------------- */
+.course-progress-container {
+    margin: 1rem 0;
+    background: var(--tag-bg);
+    height: 8px;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
 }
 
-.text-btn {
-    background: none;
-    border: none;
-    color: var(--red);
-    font-size: 0.78rem;
+.progress-bar {
+    height: 100%;
+    background: #27ae60;
+    width: 0%;
+    transition: width 0.4s ease;
+}
+
+.progress-text {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-top: 4px;
+    display: block;
+    text-align: right;
+}
+
+/* --- Lesson Navigator (Quick Jump) ------------------------ */
+.lesson-navigator {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 10px 0;
+    margin-bottom: 1rem;
+    scrollbar-width: none;
+}
+
+.lesson-navigator::-webkit-scrollbar {
+    display: none;
+}
+
+.nav-chip {
+    padding: 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: var(--text);
+    white-space: nowrap;
     cursor: pointer;
-    padding: 0;
 }
 
-.text-btn:hover {
-    text-decoration: underline;
+.nav-chip:hover {
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.nav-chip.active {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+}
+
+/* --- Code Blocks ------------------------------------------ */
+pre.code-block {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    margin: 1rem 0;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    position: relative;
+}
+
+pre.code-block code {
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+
+.copy-code-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #ccc;
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.copy-code-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
 }
 
 /* --- Accordion -------------------------------------------- */
