@@ -46,10 +46,11 @@ body {
 
 .nav-link {
   color: white;
-  padding: 0 0.8rem;
+  padding: 0 1rem;
   display: flex;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -126,7 +127,7 @@ body {
 
 /* ── Elements ── */
 .sidebar-section-title { border-bottom: 1px solid var(--ao3-border); margin-bottom: 0.5rem; padding-bottom: 0.2rem; font-weight: bold; font-size: 0.9rem; color: var(--ao3-red); margin-top: 1rem; }
-.subject-item { padding: 0.5rem; cursor: pointer; font-size: 0.85rem; border-radius: 3px; margin-bottom: 2px; }
+.subject-item { padding: 0.75rem 0.5rem; cursor: pointer; font-size: 0.9rem; border-radius: 4px; margin-bottom: 4px; }
 .subject-item.active { background: var(--ao3-red); color: white; }
 
 .timer-block { background: #eee; border: 1px solid #ccc; padding: 0.75rem; margin-top: 2rem; }
@@ -143,7 +144,7 @@ body {
 .sidebar-overlay.visible { display: block; }
 
 /* ── Buttons ── */
-.btn { background: #e1e1e1; border: 1px solid #bbb; padding: 0.4rem 0.8rem; font-size: 0.8rem; cursor: pointer; border-radius: 3px; }
+.btn { background: #e1e1e1; border: 1px solid #bbb; padding: 0.6rem 1rem; font-size: 0.9rem; cursor: pointer; border-radius: 4px; }
 .btn-primary { background: var(--ao3-red); color: white; border-color: #700; }
 
 /* ── Desktop Tweaks ── */
@@ -164,5 +165,5 @@ body {
 
 /* ── Modal ── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem; }
-.modal-box { background: white; padding: 1.5rem; border: 1px solid var(--ao3-red); width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-.modal-input { width: 100%; padding: 0.6rem; margin-bottom: 1rem; border: 1px solid var(--ao3-border); }
+.modal-box { background: white; padding: 1.5rem; border: 1px solid var(--ao3-red); width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; border-radius: 6px; }
+.modal-input { width: 100%; padding: 0.75rem; margin-bottom: 1rem; margin-top: 0.25rem; border: 1px solid var(--ao3-border); border-radius: 4px; font-size: 1rem; font-family: inherit; }

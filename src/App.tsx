@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -9,7 +9,7 @@ interface Subject {
   id: string; name: string; icon: string; type: 'notes' | 'chapters';
 }
 interface Chapter {
-  id: string; number: number; title: string; html: string; uploaded?: boolean; isQuiz?: boolean;
+  id: string; number: number; title: string; html: string; uploaded?: boolean; isQuiz?: boolean; subjectId?: string;
 }
 
 // ── New Content: Chapter 5 and Quiz ──────────────────────────────────────────
@@ -43,16 +43,17 @@ const MIDTERM_QUIZ_HTML = `
 `;
 
 const BUILTIN_CHAPTERS: Chapter[] = [
-  { id: 'im-ch1', number: 1, title: 'Introduction to Database Systems', html: '<h2>Ch 1 placeholder</h2>' },
-  { id: 'im-ch2', number: 2, title: 'Data Modeling & the ER Model', html: '<h2>Ch 2 placeholder</h2>' },
-  { id: 'im-ch3', number: 3, title: 'Normalization', html: '<h2>Ch 3 placeholder</h2>' },
-  { id: 'im-ch4', number: 4, title: 'Advanced Data Modeling (EER)', html: '<h2>Ch 4 Content (See previous versions)</h2>' },
-  { id: 'im-ch5', number: 5, title: 'Relational Algebra', html: CH5_HTML },
-  { id: 'im-quiz', number: 100, title: '🔥 MIDTERM PRACTICE QUIZ', html: MIDTERM_QUIZ_HTML, isQuiz: true },
+  { id: 'im-ch1', subjectId: 'im', number: 1, title: 'Introduction to Database Systems', html: '<h2>Ch 1 placeholder</h2>' },
+  { id: 'im-ch2', subjectId: 'im', number: 2, title: 'Data Modeling & the ER Model', html: '<h2>Ch 2 placeholder</h2>' },
+  { id: 'im-ch3', subjectId: 'im', number: 3, title: 'Normalization', html: '<h2>Ch 3 placeholder</h2>' },
+  { id: 'im-ch4', subjectId: 'im', number: 4, title: 'Advanced Data Modeling (EER)', html: '<h2>Ch 4 Content (See previous versions)</h2>' },
+  { id: 'im-ch5', subjectId: 'im', number: 5, title: 'Relational Algebra', html: CH5_HTML },
+  { id: 'im-quiz', subjectId: 'im', number: 100, title: '🔥 MIDTERM PRACTICE QUIZ', html: MIDTERM_QUIZ_HTML, isQuiz: true },
 ];
 
 const DEFAULT_SUBJECTS: Subject[] = [
   { id: 'im', name: 'Information Management', icon: '🗄️', type: 'chapters' },
+  { id: 'daa', name: 'Design & Analysis of Algorithms', icon: '⚙️', type: 'chapters' },
   { id: '1',  name: 'Computer Science',       icon: '💻', type: 'notes'    },
   { id: '2',  name: 'Mathematics',            icon: '📐', type: 'notes'    },
 ];
@@ -61,20 +62,35 @@ const DEFAULT_SUBJECTS: Subject[] = [
 function App() {
   const [activeSubjectId, setActiveSubjectId] = useState('im');
   const [notes, setNotes] = useState<Note[]>(() => JSON.parse(localStorage.getItem('study-notes') || '[]'));
-  const [uploadedChapters, setUploadedChapters] = useState<Chapter[]>(() => JSON.parse(localStorage.getItem('im-uploaded-chapters') || '[]'));
-  const [activeChapterId, setActiveChapterId] = useState(BUILTIN_CHAPTERS[5].id); // Start on Quiz
+  
+  // Migrate old 'im-uploaded-chapters' to 'study-notes-chapters' if needed
+  const [uploadedChapters, setUploadedChapters] = useState<Chapter[]>(() => {
+    let globalChapters = JSON.parse(localStorage.getItem('study-notes-chapters') || 'null');
+    if (!globalChapters) {
+      const oldIm = JSON.parse(localStorage.getItem('im-uploaded-chapters') || '[]');
+      globalChapters = oldIm.map((ch: any) => ({ ...ch, subjectId: 'im' }));
+      localStorage.setItem('study-notes-chapters', JSON.stringify(globalChapters));
+    }
+    return globalChapters;
+  });
+
+  const [activeChapterId, setActiveChapterId] = useState(BUILTIN_CHAPTERS[5].id); // Start on IM Quiz initially
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<any>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const allChapters = [...BUILTIN_CHAPTERS, ...uploadedChapters].sort((a, b) => a.number - b.number);
+
   const activeSubject = DEFAULT_SUBJECTS.find(s => s.id === activeSubjectId)!;
-  const activeChapter = allChapters.find(c => c.id === activeChapterId) || allChapters[0];
+  const filteredBuiltin = BUILTIN_CHAPTERS.filter(c => c.subjectId === activeSubjectId);
+  const filteredUploaded = uploadedChapters.filter(c => c.subjectId === activeSubjectId || (!c.subjectId && activeSubjectId === 'im'));
+  const allChapters = [...filteredBuiltin, ...filteredUploaded].sort((a, b) => a.number - b.number);
+  
+  const activeChapter = allChapters.find(c => c.id === activeChapterId) || allChapters[0] || BUILTIN_CHAPTERS[0];
   const activeNote = notes.find(n => n.id === activeNoteId) || notes.find(n => n.subjectId === activeSubjectId) || null;
 
   useEffect(() => localStorage.setItem('study-notes', JSON.stringify(notes)), [notes]);
-  useEffect(() => localStorage.setItem('im-uploaded-chapters', JSON.stringify(uploadedChapters)), [uploadedChapters]);
+  useEffect(() => localStorage.setItem('study-notes-chapters', JSON.stringify(uploadedChapters)), [uploadedChapters]);
 
   const handleCreateNote = () => {
     const n = { id: Date.now().toString(), subjectId: activeSubjectId, title: 'New Work', content: '', updatedAt: Date.now() };
@@ -106,7 +122,16 @@ function App() {
       <aside className={`sidebar ${isMenuOpen ? '' : 'hidden'}`}>
         <div className="sidebar-section-title">SUBJECTS</div>
         {DEFAULT_SUBJECTS.map(s => (
-          <div key={s.id} className={`subject-item ${s.id === activeSubjectId ? 'active' : ''}`} onClick={() => {setActiveSubjectId(s.id); setActiveNoteId(null); setIsMenuOpen(false);}}>
+          <div key={s.id} className={`subject-item ${s.id === activeSubjectId ? 'active' : ''}`} onClick={() => {
+            setActiveSubjectId(s.id); 
+            setActiveNoteId(null); 
+            // Automatically switch to first chapter if switching to a chapter subject
+            if (s.type === 'chapters') {
+               const sChapters = [...BUILTIN_CHAPTERS, ...uploadedChapters].filter(c => c.subjectId === s.id || (!c.subjectId && s.id === 'im')).sort((a,b) => a.number - b.number);
+               if (sChapters.length > 0) setActiveChapterId(sChapters[0].id);
+            }
+            setIsMenuOpen(false);
+          }}>
             {s.icon} {s.name}
           </div>
         ))}
@@ -154,17 +179,23 @@ function App() {
       {pendingUpload && (
         <div className="modal-backdrop" onClick={() => setPendingUpload(null)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <h3 className="sidebar-section-title">POST NEW CHAPTER</h3>
-            <label className="meta-label">Ch #</label>
+            <h3 className="sidebar-section-title" style={{marginTop:0}}>POST NEW CONTENT</h3>
+            <label className="meta-label" style={{width:'100%', textAlign:'left', display:'block'}}>Type</label>
+            <select className="modal-input" id="upChType">
+              <option value="chapter">Chapter / Lecture</option>
+              <option value="quiz">Practice Quiz</option>
+            </select>
+            <label className="meta-label" style={{width:'100%', textAlign:'left', display:'block'}}>Number (Ch # or Quiz #)</label>
             <input className="modal-input" type="number" defaultValue={allChapters.length + 1} id="upChNum" />
-            <label className="meta-label">Title</label>
+            <label className="meta-label" style={{width:'100%', textAlign:'left', display:'block'}}>Title</label>
             <input className="modal-input" type="text" defaultValue={pendingUpload.filename} id="upChTitle" />
-            <button className="btn btn-primary" onClick={() => {
-              const num = Number((document.getElementById('upChNum') as any).value);
-              const title = (document.getElementById('upChTitle') as any).value;
-              setUploadedChapters(p => [...p, { id: `up-${Date.now()}`, number: num, title, html: pendingUpload.html, uploaded: true }]);
+            <button className="btn btn-primary" style={{width:'100%', padding:'0.75rem', fontSize:'1rem', marginTop:'0.5rem'}} onClick={() => {
+              const num = Number((document.getElementById('upChNum') as HTMLInputElement).value);
+              const title = (document.getElementById('upChTitle') as HTMLInputElement).value;
+              const isQuiz = (document.getElementById('upChType') as HTMLSelectElement).value === 'quiz';
+              setUploadedChapters(p => [...p, { id: `up-${Date.now()}`, number: num, title, html: pendingUpload.html, uploaded: true, isQuiz, subjectId: activeSubjectId }]);
               setPendingUpload(null);
-            }}>Post</button>
+            }}>Post to {activeSubject.name}</button>
           </div>
         </div>
       )}
